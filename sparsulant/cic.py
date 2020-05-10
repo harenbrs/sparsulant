@@ -51,7 +51,6 @@ class cic_matrix(_data_matrix):
             >= 0
         )
         
-        self.period = np.lcm(self.shift, self.shape[0])//self.shift
         self._fourier_column = None
         
         if dtype is not None:
@@ -173,23 +172,28 @@ class cic_matrix(_data_matrix):
     def _mul_vector(self, other):
         x = np.ravel(other)
         
-        x_folded = np.zeros(self.shape[0])
-        for i in np.arange(0, self.shape[1], self.shape[0]):
-            x_part = x[i:i + self.shape[0]]
-            x_folded[:len(x_part)] += x_part
+        if self.shift == 0:
+            # Very simple case, handle separately
+            return self.get_dense_column()*x.sum()
+        elif self.shift < 0:
+            # Reverse input and roll first element back to first index
+            x = np.concatenate(([x[0]], x[:0:-1]))
         
-        # TODO: shift!
+        shift = abs(self.shift)
         
-        return np.fft.irfft(self.get_fourier_column()*np.fft.rfft(x_folded))
-    
-    def _mul_multivector(self, other):
-        x_folded = np.zeros((self.shape[0], other.shape[1]))
-        for i in np.arange(0, self.shape[1], self.shape[0]):
-            x_part = other[i:i + self.shape[0]]
-            x_folded[:len(x_part)] += x_part
-        
-        # TODO: shift!
+        if shift == 1:
+            x_folded = np.zeros(self.shape[0], dtype=other.dtype)
+            for i in range(0, self.shape[1], self.shape[0]):
+                x_part = x[i:i + self.shape[0]]
+                x_folded[:len(x_part)] += x_part
+        else:
+            x_folded = np.bincount(
+                (np.arange(len(x))*shift)%self.shape[0], x, self.shape[0]
+            )
         
         return np.fft.irfft(
-            self.get_fourier_column()[:, None]*np.fft.rfft(x_folded, axis=0), axis=0
-        )
+            self.get_fourier_column()*np.fft.rfft(x_folded), n=self.shape[0]
+        ).astype(sputils.upcast_char(self.dtype.char, other.dtype.char))
+    
+    def _mul_multivector(self, other):
+        return np.column_stack([self._mul_vector(column) for column in other.T])
