@@ -51,8 +51,6 @@ class cir_matrix(_data_matrix):
             >= 0
         )
         
-        self.period = np.lcm(self.shift, self.shape[1])//self.shift
-        
         if dtype is not None:
             self.data = self.data.astype(dtype)
     
@@ -169,13 +167,17 @@ class cir_matrix(_data_matrix):
             self.shape[0], dtype=sputils.upcast_char(self.dtype.char, x.dtype.char)
         )
         
-        _cir_mul_vector(
-            x, self.data, self.offsets, self.shift, self.period, self.shape, y
-        )
+        if self.shift == 0:
+            y[:] = self.data.dot(x[self.offsets])
+            return y
         
-        y[self.period:] = np.tile(
-            y[:self.period], int(np.ceil(self.shape[0]/self.period)) - 1
-        )[:self.shape[0] - self.period]
+        period = np.lcm(self.shift, self.shape[1])//self.shift
+        
+        _cir_mul_vector(x, self.data, self.offsets, self.shift, period, self.shape, y)
+        
+        y[period:] = np.tile(y[:period], int(np.ceil(self.shape[0]/period)) - 1)[
+            :self.shape[0] - period
+        ]
         
         return y
     
