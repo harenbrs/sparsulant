@@ -90,7 +90,7 @@ class cir_matrix(_data_matrix):
     tocoo.__doc__ = spmatrix.tocoo.__doc__
     
     def get_dense_row(self):
-        col = np.zeros(self.shape[0], self.dtype)
+        col = np.zeros(self.shape[1], self.dtype)
         col[self.offsets] = self.data
         return col
     
