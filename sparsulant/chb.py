@@ -92,9 +92,31 @@ class chb_matrix(spmatrix):
             self.shape[0], dtype=sputils.upcast_char(self.dtype.char, other.dtype.char)
         )
         
-        # TODO: check if period can be used to speed this up
+        for i in range(self.n_blocks):
+            y0 = self.block @ xs[i]
+            offset = (i*self.shift)%self.shape[0]
+            if offset == 0:
+                y += y0
+            else:
+                y[:offset] += y0[-offset:]
+                y[offset:] += y0[:-offset]
+        
+        return y
+    
+    def _mul_multivector(self, other):
+        xs = other.reshape(self.n_blocks, self.block.shape[1], other.shape[1])
+        y = np.zeros(
+            (self.shape[0], other.shape[1]),
+            dtype=sputils.upcast_char(self.dtype.char, other.dtype.char)
+        )
         
         for i in range(self.n_blocks):
-            y += np.roll(self.block @ xs[i], i*self.shift)
+            y0 = self.block @ xs[i]
+            offset = (i*self.shift)%self.shape[0]
+            if offset == 0:
+                y += y0
+            else:
+                y[:offset] += y0[-offset:]
+                y[offset:] += y0[:-offset]
         
         return y
