@@ -3,7 +3,6 @@ from scipy.sparse.data import _data_matrix
 from scipy.sparse import spmatrix, coo_matrix, sputils
 
 from .base import _formats
-from .operations import _cir_mul_vector
 
 
 class cir_matrix(_data_matrix):
@@ -51,6 +50,8 @@ class cir_matrix(_data_matrix):
             >= 0
         )
         
+        self._conjugate_fourier_row = None
+        
         if dtype is not None:
             self.data = self.data.astype(dtype)
     
@@ -93,6 +94,11 @@ class cir_matrix(_data_matrix):
         col = np.zeros(self.shape[1], self.dtype)
         col[self.offsets] = self.data
         return col
+    
+    def get_conjugate_fourier_row(self):
+        if self._conjugate_fourier_row is None:
+            self._conjugate_fourier_row = np.fft.rfft(self.get_dense_row()).conj()
+        return self._conjugate_fourier_row
     
     def tocic(self, copy=False):
         if self.shape[0] != self.shape[1]:
@@ -171,15 +177,46 @@ class cir_matrix(_data_matrix):
             y[:] = self.data.dot(x[self.offsets])
             return y
         
-        period = np.lcm(self.shift, self.shape[1])//self.shift
+        period = min(self.shape[0], np.lcm(self.shift, self.shape[1])//self.shift)
         
-        _cir_mul_vector(x, self.data, self.offsets, self.shift, period, self.shape, y)
+        y0 = np.fft.irfft(
+            self.get_conjugate_fourier_row()*np.fft.rfft(x), n=self.shape[1]
+        )
         
-        y[period:] = np.tile(y[:period], int(np.ceil(self.shape[0]/period)) - 1)[
-            :self.shape[0] - period
-        ]
+        y[:period] = y0[(self.shift*np.arange(period))%len(y0)]
+        
+        for i in range(period, self.shape[0], period):
+            src = y[i - period:i]
+            dst = y[i:i + period]
+            size = min(len(src), len(dst))
+            dst[:size] = src[:size]
         
         return y
     
     def _mul_multivector(self, other):
-        return super()._mul_multivector(other)
+        y = np.zeros(
+            (self.shape[0], other.shape[1]),
+            dtype=sputils.upcast_char(self.dtype.char, other.dtype.char)
+        )
+        
+        if self.shift == 0:
+            y[:] = self.data.dot(other[self.offsets])
+            return y
+        
+        period = min(self.shape[0], np.lcm(self.shift, self.shape[1])//self.shift)
+        
+        y0 = np.fft.irfft(
+            self.get_conjugate_fourier_row()[:, None]*np.fft.rfft(other, axis=0),
+            n=self.shape[1],
+            axis=0
+        )
+        
+        y[:period] = y0[(self.shift*np.arange(period))%len(y0)]
+        
+        for i in range(period, self.shape[0], period):
+            src = y[i - period:i]
+            dst = y[i:i + period]
+            size = min(len(src), len(dst))
+            dst[:size] = src[:size]
+        
+        return y
