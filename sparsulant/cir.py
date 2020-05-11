@@ -189,7 +189,7 @@ class cir_matrix(_data_matrix):
             y[:] = self.data.dot(x[self.offsets])
             return y
         
-        period = min(self.shape[0], np.lcm(self.shift, self.shape[1])//self.shift)
+        period = min(self.shape[0], abs(np.lcm(self.shift, self.shape[1])//self.shift))
         
         y0 = np.fft.irfft(
             self.get_conjugate_fourier_row()*np.fft.rfft(x), n=self.shape[1]
@@ -215,7 +215,7 @@ class cir_matrix(_data_matrix):
             y[:] = self.data.dot(other[self.offsets])
             return y
         
-        period = min(self.shape[0], np.lcm(self.shift, self.shape[1])//self.shift)
+        period = min(self.shape[0], abs(np.lcm(self.shift, self.shape[1])//self.shift))
         
         y0 = np.fft.irfft(
             self.get_conjugate_fourier_row()[:, None]*np.fft.rfft(other, axis=0),
