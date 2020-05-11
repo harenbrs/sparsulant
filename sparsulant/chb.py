@@ -5,6 +5,7 @@ from scipy.sparse import spmatrix, coo_matrix, sputils
 from .base import _formats
 from .cic import cic_matrix
 from .cir import cir_matrix
+from .util import nbytes
 
 
 class chb_matrix(spmatrix):
@@ -47,6 +48,10 @@ class chb_matrix(spmatrix):
     
     def count_nonzero(self):
         return self.block.count_nonzero()*self.n_blocks
+    
+    @property
+    def nbytes(self):
+        return nbytes(self.block)
     
     def transpose(self, axes=None, copy=False):
         from .cvb import cvb_matrix

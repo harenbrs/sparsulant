@@ -77,6 +77,18 @@ class cir_matrix(_data_matrix):
     def count_nonzero(self):
         return np.count_nonzero(self.data)*self.shape[1]
     
+    @property
+    def nbytes(self):
+        return (
+            self.data.nbytes
+            + self.offsets.nbytes
+            + (
+                self._conjugate_fourier_row.nbytes
+                if self._conjugate_fourier_row is not None
+                else 0
+            )
+        )
+    
     def tocoo(self, copy=False):
         v = np.tile(self.data, self.shape[0])
         i = np.repeat(np.arange(self.shape[0]), len(self.data))

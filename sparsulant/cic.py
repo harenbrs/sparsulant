@@ -78,6 +78,14 @@ class cic_matrix(_data_matrix):
     def count_nonzero(self):
         return np.count_nonzero(self.data)*self.shape[1]
     
+    @property
+    def nbytes(self):
+        return (
+            self.data.nbytes
+            + self.offsets.nbytes
+            + (self._fourier_column.nbytes if self._fourier_column is not None else 0)
+        )
+    
     def tocoo(self, copy=False):
         v = np.tile(self.data, self.shape[1])
         i = np.concatenate(
