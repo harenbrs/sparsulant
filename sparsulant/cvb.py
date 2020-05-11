@@ -30,7 +30,6 @@ class cvb_matrix(spmatrix):
         assert shape[0]%self.block.shape[0] == 0
         
         self.n_blocks = self.shape[0]//self.block.shape[0]
-        self.period = np.lcm(self.shift, self.shape[1])//self.shift
         
         self.dtype = self.block.dtype
     
@@ -93,13 +92,64 @@ class cvb_matrix(spmatrix):
             self.shape[0], dtype=sputils.upcast_char(self.dtype.char, other.dtype.char)
         )
         
+        if self.shift == 0:
+            y0 = self.block @ x
+            for i in range(self.n_blocks):
+                y[i*len(y0):(i + 1)*len(y0)] = y0
+            return y
+        
         n0 = self.block.shape[0]
+        period = min(self.n_blocks, abs(np.lcm(self.shift, self.shape[1])//self.shift))
         
-        for i in range(min(self.n_blocks, self.period)):
-            y[i*n0:(i + 1)*n0] += self.block @ np.roll(x, -i*self.shift)
+        xr = np.empty_like(x)
         
-        y[n0*self.period:] = np.tile(
-            y[:n0*self.period], int(np.ceil(self.shape[0]/(n0*self.period)) - 1)
-        )[:self.shape[0] - n0*self.period]
+        for i in range(period):
+            # Equivalent to `xr = np.roll(x, -i*self.shift)``, but faster
+            offset = -i*self.shift
+            if offset == 0:
+                xr[:] = x
+            else:
+                xr[:offset] = x[-offset:]
+                xr[offset:] = x[:-offset]
+            y[i*n0:(i + 1)*n0] += self.block @ xr
+        
+        row_period = n0*period
+        y0 = y[:row_period]
+        for i in range(row_period, self.shape[0], row_period):
+            y[i:i + row_period] = y0[:len(y) - i]
+        
+        return y
+    
+    def _mul_multivector(self, other):
+        y = np.zeros(
+            (self.shape[0], other.shape[1]),
+            dtype=sputils.upcast_char(self.dtype.char, other.dtype.char)
+        )
+        
+        if self.shift == 0:
+            y0 = self.block @ other
+            for i in range(self.n_blocks):
+                y[i*len(y0):(i + 1)*len(y0)] = y0
+            return y
+        
+        n0 = self.block.shape[0]
+        period = min(self.n_blocks, abs(np.lcm(self.shift, self.shape[1])//self.shift))
+        
+        xr = np.empty_like(other)
+        
+        for i in range(period):
+            # Equivalent to `xr = np.roll(other, -i*self.shift, axis=0)`, but faster
+            offset = -i*self.shift
+            if offset == 0:
+                xr[:] = other
+            else:
+                xr[:offset] = other[-offset:]
+                xr[offset:] = other[:-offset]
+            y[i*n0:(i + 1)*n0] += self.block @ xr
+        
+        row_period = n0*period
+        y0 = y[:row_period]
+        for i in range(row_period, self.shape[0], row_period):
+            y[i:i + row_period] = y0[:len(y) - i]
         
         return y
