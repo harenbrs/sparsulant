@@ -204,4 +204,34 @@ class cic_matrix(_data_matrix):
         ).astype(sputils.upcast_char(self.dtype.char, other.dtype.char))
     
     def _mul_multivector(self, other):
-        return np.column_stack([self._mul_vector(column) for column in other.T])
+        x = other
+        
+        if self.shift == 0:
+            # Very simple case, handle separately
+            return np.multiply.outer(self.get_dense_column(), other.sum(axis=0))
+        elif self.shift < 0:
+            # Reverse input and roll first element back to first index
+            x = np.concatenate(([x[0]], x[:0:-1]))
+        
+        shift = abs(self.shift)
+        
+        if shift == 1:
+            x_folded = np.zeros((self.shape[0], x.shape[1]), dtype=other.dtype)
+            for i in range(0, self.shape[1], self.shape[0]):
+                x_part = x[i:i + self.shape[0]]
+                x_folded[:len(x_part)] += x_part
+        else:
+            x_folded = np.column_stack(
+                [
+                    np.bincount(
+                        (np.arange(len(col))*shift)%self.shape[0], col, self.shape[0]
+                    )
+                    for col in x.T
+                ]
+            )
+        
+        return np.fft.irfft(
+            self.get_fourier_column()[:, None]*np.fft.rfft(x_folded, axis=0),
+            n=self.shape[0],
+            axis=0
+        ).astype(sputils.upcast_char(self.dtype.char, other.dtype.char))
