@@ -1,0 +1,3 @@
+[tool.pytest.ini_options]
+addopts = "--benchmark-sort=name --benchmark-group-by=group,param --benchmark-autosave --benchmark-compare --benchmark-compare-fail=median:10% --benchmark-disable"
+testpaths = ["tests"]
