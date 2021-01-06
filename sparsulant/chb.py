@@ -5,6 +5,7 @@ from scipy.sparse import spmatrix, coo_matrix, sputils
 from .base import _formats
 from .cic import cic_matrix
 from .cir import cir_matrix
+from .hsb import hsb_matrix
 from .util import nbytes
 
 
@@ -66,6 +67,9 @@ class chb_matrix(spmatrix):
         Slow.
         """
         return scipy.sparse.hstack([self.get_block(i) for i in range(self.n_blocks)])
+    
+    def tohsb(self, copy=False):
+        return hsb_matrix([self.get_block(i) for i in range(self.n_blocks)])
     
     def get_block(self, i=0):
         if i == 0:
